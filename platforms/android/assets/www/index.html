@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Capture Image</title>
+    
+    <script type="text/javascript" charset="utf-8" src="cordova.js"></script>        
+    <script src="js/jquery-1.11.2.min.js" type="text/javascript"></script>
+    <script type="text/javascript" src="js/porthole.js"></script>
+    <script type="text/javascript" charset="utf-8">		
+		
+        var pictureSource;   
+        var destinationType; 
+        var x;
+	var frameH, frameW;	
+        var gblPageUrl;
+        //CR
+        var gblLatitute=0, gblLongitude=0;
+		
+
+        $(document).ready(function(){
+		frameH = document.documentElement.clientHeight;
+		frameW = document.documentElement.clientWidth;			
+		$("#guestFrame1").height(frameH);
+		$("#guestFrame1").width(frameW);
+		
+	});
+	
+	$(document).bind('offline', function(){
+		//navigator.notification.alert("Sorry, you are offline. Please check your network connection and try again.", function() {}, "Offline!");
+		alert("Sorry, you are offline. Please check your network connection and try again.");
+	});
+	
+        $(document).bind('deviceready', function(){
+            //Network Status
+            var networkState = navigator.connection.type;
+            if(networkState == Connection.NONE){
+            	//console.log("Sorry, you are offline.");
+            	//navigator.notification.alert("Sorry, you are offline. Please check your network connection and try again.", function() {}, "Offline!");
+            	alert("Sorry, you are offline. Please check your network connection and try again.");
+                navigator.app.exitApp();
+            } else {
+                console.log(networkState);
+                pictureSource=navigator.camera.PictureSourceType;
+                destinationType=navigator.camera.DestinationType;                        
+                getLocation();
+            }
+            
+			//window.open('http://plentyofcurry.com/apps','_self');
+        });
+        
+        function getLocation() {
+            //alert("Inside getLocation");
+            if (navigator.geolocation) {
+                //alert("Inside getLocation if");
+                navigator.geolocation.getCurrentPosition(showPosition, showError, { maximumAge: 3000, timeout: 10000, enableHighAccuracy: true });
+                //alert("navigator.geolocation.getCurrentPosition");
+            } else { 
+                //alert("Inside getLocation else");
+                //x.innerHTML = "Geolocation is not supported by this browser.";
+                console.log("Geolocation is not supported by this browser.");
+            }
+        }
+        
+        function showPosition(position) {
+            //alert("Inside showPosition");
+			//alert(JSON.stringify(position));
+			//alert(position.coords.latitude);
+			//alert(position.coords.longitude);
+			//x = document.getElementById("demo");
+            //x.innerHTML = "Latitude: " + position.coords.latitude + "<br>Longitude: " + position.coords.longitude;
+            console.log("Latitude: " + position.coords.latitude + "<br>Longitude: " + position.coords.longitude);
+            //CR
+            gblLatitute = position.coords.latitude;
+            gblLongitude = position.coords.longitude;
+            $("#guestFrame1").attr("src","http://plentyofcurry.com/apps/index.php?lat="+gblLatitute+"&long="+gblLongitude);
+            //Call Service
+            /*
+            $.get("http://plentyofcurry.com/apps/api/latlong.php",
+            {
+              lat: position.coords.latitude,
+              long: position.coords.longitude,
+              deviceid: device.uuid
+            },
+            function(data,status){
+                //alert("Data: " + data + "\nStatus: " + status);
+                console.log("Data: " + data + "\nStatus: " + status);
+            });
+            */
+            //alert("Latitude: " + position.coords.latitude + "<br>Longitude: " + position.coords.longitude);
+        }
+        
+        function showError(error) {
+            //alert(JSON.stringify(error));
+            console.log(JSON.stringify(error));
+            //CR
+            $("#guestFrame1").attr("src","http://plentyofcurry.com/apps");
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    //x.innerHTML = "User denied the request for Geolocation."
+                    alert("Unable to fetch your current location. Please try again.");
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    alert("GPS is disabled. Go to location Settings?");
+                    cordova.plugins.barcodeScanner.scan(
+                        function (result) {
+                            //alert("We got a barcode\n" +
+                                  //"Result: " + result.text + "\n" +
+                                  //"Format: " + result.format + "\n" +
+                                  //"Cancelled: " + result.cancelled);
+                        }, 
+                        function (error) {
+                            //alert("Scanning failed: " + error);
+                        }
+                     );
+                    //x.innerHTML = "Location information is unavailable."
+                    break;
+                case error.TIMEOUT:
+                    alert("Unable to fetch your current location. Please try again.");                    
+                    //x.innerHTML = "The request to get user location timed out."
+                    break;
+                case error.UNKNOWN_ERROR:
+                    alert("Unable to fetch your current location. Please try again.");
+                    //x.innerHTML = "An unknown error occurred."
+                    break;
+            }
+        }
+        
+        //Changed to FILE_URI from DATA_URL & added correctOrientation
+        function getPhoto() 
+        {
+            navigator.camera.getPicture(onPhotoURICaptureSuccess, onFail, { quality: 50, 
+            destinationType: destinationType.FILE_URI,correctOrientation: true,
+            sourceType: pictureSource.PHOTOLIBRARY, encodingType: Camera.EncodingType.JPEG });
+        }
+		
+        function capturePhoto() {			
+          // Take picture using device camera and retrieve image as base64-encoded string
+          navigator.camera.getPicture(onPhotoURICaptureSuccess, onFail, { quality: 50,
+                destinationType: destinationType.FILE_URI,
+                correctOrientation: true
+            });
+        }
+        
+        function onPhotoURICaptureSuccess(imageURI)
+        {
+            var options = new FileUploadOptions();
+            options.fileKey="file";
+            options.fileName=imageURI.substr(imageURI.lastIndexOf('/')+1);
+            options.mimeType="image/jpeg";
+ 
+            var params = new Object();
+            params.pageurl = gblPageUrl;
+            //params.value2 = "param";
+ 
+            options.params = params;
+            options.chunkedMode = false;
+ 
+            var ft = new FileTransfer();
+            ft.upload(imageURI, "http://plentyofcurry.com/apps/api/imagerecive.php", win, fail, options);
+        }
+        
+        function win(r) {
+            console.log("Code = " + r.responseCode);
+            console.log("Response = " + r.response);
+            console.log("Sent = " + r.bytesSent);
+            alert(r.response);
+        }
+ 
+        function fail(error) {
+            alert("An error has occurred: Code = " = error.code);
+            console.log("An error has occurred: Code = " = error.code);
+        }
+        
+        function onPhotoURISuccess(imageURI) 
+        {
+            //alert(imageURI);
+            //var largeImage = document.getElementById('largeImage');
+            //largeImage.style.display = 'block';
+            //largeImage.src = imageURI;
+            
+            //var imageActual = document.getElementById('myImage');
+            //var imgDatas = "data:image/jpeg;base64," + imageURI;
+            
+            //alert(imgDatas);
+            //console.log(imgDatas);
+            //imageActual.src = imgDatas;
+            
+            //Call Service
+            //alert("pageurl: "+gblPageUrl);
+            //$.post("http://plentyofcurry.com/apps/api/imagerecive.php",
+            //$.post("http://10.227.94.93:8888/DelServ/imagerecive.php",
+            $.post("http://plentyofcurry.com/apps/api/imagerecive.php",
+            {
+              imagestr: imageURI,
+              pageurl: gblPageUrl
+            },
+            function(data,status){
+                //alert("Data: " + data + "\nStatus: " + status);
+                console.log("Data: " + data + "\nStatus: " + status);
+            });
+            
+        }
+        
+        function onFail(message) 
+        {
+            //alert('Failed because: ' + message);
+            console.log('Failed because: ' + message);
+        }
+        
+		
+
+    
+        var guestDomain = 'plentyofcurry.com';
+
+        function onMessage1(messageEvent) {  
+                Porthole.trace("onMessage1");
+                if (messageEvent.origin == "http://" + guestDomain) {
+                        gblPageUrl = messageEvent.data["pageurl"];
+                        //alert(gblPageUrl);
+                        if (messageEvent.data["color"]) {
+                                getPhoto();
+                        } 
+
+                        if (messageEvent.data["expanded"]) {
+                                capturePhoto();
+                        }
+
+                }
+        }
+
+			
+			
+			
+        var windowProxy1;
+        window.onload=function(){ 
+                Porthole.trace("onload");
+                        // Create a proxy window to send to and receive message from the guest iframe
+                        windowProxy1 = new Porthole.WindowProxy('http://' + guestDomain + '/apps/proxy.html', 'guestFrame1');
+                        windowProxy1.addEventListener(onMessage1);					
+        };
+    </script>
+    </head>
+    <body style="margin: 0; padding: 0;">
+        
+		
+		
+		
+			
+			<iframe id="guestFrame1" name="guestFrame1" frameborder="0" src="" scrolling="yes"></iframe>
+				
+        <!--<button onclick="getPhoto();">From Gallery!!</button>
+		<button onclick="capturePhoto();">Capture Photo</button>
+		
+        <div id="largeImage"></div>
+        <p id="demo"></p>
+        <img src id="myImage" height="100"/>
+        
+	-->	
+		
+    </body>	
+</html>
